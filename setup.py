@@ -18,7 +18,7 @@ setup(
     long_description=readme,
     download_url=
         'https://github.com/RemcoHaszing/python-audiotools/archive/master.zip',
-    license='WTFPL',
+    license='BSD 3-Clause License',
     test_suite='test',
     ext_modules=[Extension(
         'audiotools',
