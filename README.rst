@@ -20,12 +20,12 @@ Installation
 
 Using pip: ::
 
-    pip install pyav
+    pip install audiotools
 
 From GitHub: ::
 
     git clone ...
-    cd pyav
+    cd audiotools
     ./setup.py install
 
 
@@ -34,7 +34,7 @@ Usage
 
 Reading song metadata:
 
->>> from pyav import Song
+>>> from audiotools import Song
 >>> filename = 'Finntroll - Trollhammaren.flac'
 >>> song = Song(filename)
 >>> song['artist']
@@ -73,7 +73,7 @@ Playback (not implemented):
 Testing
 -------
 
-Run test/test_pyav.py: ::
+Run test/test_audiotools.py: ::
 
     ./setup.py test
 
