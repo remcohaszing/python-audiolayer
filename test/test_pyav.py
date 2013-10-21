@@ -7,7 +7,8 @@ from audiotools import Song
 
 
 # Use the existing media file in the same directory as the unittest for
-# testing purposes.
+# testing purposes. The test file is freely available from
+# http://www.machinaesupremacy.com/downloads/
 testfile = os.path.join(os.path.dirname(__import__(__name__).__file__),
                         'test.flac')
 

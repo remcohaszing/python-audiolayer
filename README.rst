@@ -1,7 +1,7 @@
 Python Audiotools
 =================
 
-This package contains a Python 3 wrapper around the libav library. This
+This package contains a Python 3 wrapper around the libav_ library. This
 is work in progress. The only things which are currently supported are
 reading and setting (not writing) metadata.
 
@@ -18,14 +18,14 @@ Requirements
 Installation
 ------------
 
-Using pip: ::
+Using pip: (Not yet implemented)::
 
     pip install audiotools
 
 From GitHub: ::
 
-    git clone ...
-    cd audiotools
+    git clone https://github.com/RemcoHaszing/python-audiotools.git
+    cd python-audiotools
     ./setup.py install
 
 
@@ -73,7 +73,7 @@ Playback (not implemented):
 Testing
 -------
 
-Run test/test_audiotools.py: ::
+::
 
     ./setup.py test
 
@@ -84,5 +84,6 @@ Coding style
 All Python code must be in compliance with pep8_. C code must be in compliance
 with pep7_. All code must be covered by unittests.
 
+.. _libav: https://github.com/genesi/libav
 .. _pep7: http://www.python.org/dev/peps/pep-0007/
 .. _pep8: http://www.python.org/dev/peps/pep-0008/
