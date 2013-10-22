@@ -134,8 +134,7 @@ Song_print(Song *self)
         }
         printf("%s -> %s\n", key, tag->value);
     }
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject *
@@ -173,8 +172,7 @@ Song_play(Song *self)
     }
     AVPacket packet;
     if (av_read_frame(self->fmt_ctx, &packet) < 1) {
-        Py_INCREF(Py_None);
-        return Py_None;
+        Py_RETURN_NONE;
     }
     AVFrame *frame = avcodec_alloc_frame();
     int has_next = 1;
@@ -193,8 +191,7 @@ Song_play(Song *self)
             break;
         }
     }
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyMappingMethods Song_as_mapping = {
