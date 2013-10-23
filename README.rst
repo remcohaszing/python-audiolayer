@@ -28,7 +28,7 @@ From GitHub: ::
 
     git clone https://github.com/RemcoHaszing/python-audiotools.git
     cd python-audiotools
-    ./setup.py install
+    python3 setup.py install
 
 
 Usage
@@ -75,16 +75,17 @@ Playback (not implemented):
 Testing
 -------
 
-::
+Go to the project root directory and run: ::
 
-    ./setup.py test
+    python3 setup.py test
 
 
 Coding style
 ------------
 
-All Python code must be in compliance with pep8_. C code must be in compliance
-with pep7_. All code must be covered by unittests.
+- C code must be in compliance with pep7_.
+- Python code must be in compliance with pep8_.
+- All code must be covered by unittests.
 
 
 License
