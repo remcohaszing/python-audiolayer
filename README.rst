@@ -1,10 +1,13 @@
 Python Audiotools
 =================
 
-This package contains a Python 3 wrapper around the `libav
-<https://libav.org/>`_ library. This is work in progress. The only things which
-are currently supported are reading and setting (not writing) metadata. The
-project website can be found at `GitHub
+This package contains a Python 3 Extension for playing audio files, reading and
+writing metadata and converting those files. For decoding files the libav_
+library is used. Playback is handled by libsdl_.
+
+This is work in progress. The only things which are currently supported are
+reading and setting (not writing) metadata. The project website can be found at
+`GitHub
 <https://github.com/RemcoHaszing/python-audiotools>`_.
 
 
@@ -24,7 +27,7 @@ Using pip: (Not yet implemented)::
 
     pip install audiotools
 
-From GitHub: ::
+From GitHub::
 
     git clone https://github.com/RemcoHaszing/python-audiotools.git
     cd python-audiotools
@@ -75,9 +78,10 @@ Playback (not implemented):
 Testing
 -------
 
-Go to the project root directory and run: ::
+The unittests for this project require nose_ to be installed.
+To run the tests go to the project root directory and run::
 
-    python3 setup.py test
+    python3 setup.py nosetests
 
 
 Coding style
@@ -87,6 +91,11 @@ Coding style
 - Python code must be in compliance with pep8_.
 - All code must be covered by unittests.
 
+To test the Python code for pep8 compliance, go to the project root directory
+and run::
+
+    python3 setup.py flake8
+
 
 License
 -------
@@ -94,6 +103,8 @@ License
 This project is licensed under the BSD 3-Clause License.
 
 
-.. _libav: https://github.com/genesi/libav
-.. _pep7: http://www.python.org/dev/peps/pep-0007/
-.. _pep8: http://www.python.org/dev/peps/pep-0008/
+.. _libav: https://libav.org
+.. _libsdl: http://www.libsdl.org
+.. _nose: http://nose.readthedocs.org
+.. _pep7: http://www.python.org/dev/peps/pep-0007
+.. _pep8: http://www.python.org/dev/peps/pep-0008

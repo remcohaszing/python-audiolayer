@@ -59,6 +59,16 @@ class TestSongMetadata(unittest.TestCase):
         song['artist'] = 'MaSu'
         self.assertEqual(song['artist'], 'MaSu')
 
+    def test_special_character(self):
+        """
+        Test setting and getting special characters.
+
+        """
+        song = Song(testfile)
+        self.assertEqual(song['title'], 'Megascorcher')
+        song['title'] = 'Mégäscørcher'
+        self.assertEqual(song['title'], 'Mégäscørcher')
+
     def test_set_nonstringvalue(self):
         """
         Test that the metadata value is converted to a string when it
@@ -90,6 +100,51 @@ class TestSongMetadata(unittest.TestCase):
         del song['album']
         with self.assertRaises(KeyError):
             song['I do not exist']
+
+    def test_contains(self):
+        """
+        Test values 'in' a Song.
+
+        """
+        song = Song(testfile)
+        self.assertTrue('artist' in song)
+        self.assertTrue('artiSt' in song)
+        self.assertTrue('TitLe' in song)
+        self.assertFalse('something non existing' in song)
+
+    def test_forloop(self):
+        """
+        Test looping through a song using a for loop is handled
+        correctly.
+
+        """
+        song = Song(testfile)
+        tags = [tag for tag in song]
+        self.assertSequenceEqual(tags, [
+            'track', 'title', 'artist', 'album', 'album artist',
+            'album_artist', 'disc', 'date', 'genre'])
+
+    def test_len(self):
+        """
+        Test that the length function of a song object is properly
+        implemented.
+
+        """
+        song = Song(testfile)
+        self.assertEqual(len(song), 9)
+
+    def test_str(self):
+        """
+        Test the implementation of str(song)
+
+        """
+        song = Song(testfile)
+        value = str(song)
+        self.assertTrue(value.startswith('audiotools.Song('))
+        self.assertTrue(value.endswith(')'))
+        for tag in song:
+            self.assertIn(tag, value)
+            self.assertIn(song[tag], value)
 
 
 if __name__ == '__main__':

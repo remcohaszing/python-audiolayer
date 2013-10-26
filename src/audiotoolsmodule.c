@@ -7,10 +7,13 @@
 #include <libavformat/avformat.h>
 #include <libavutil/dict.h>
 
+#include "playback.h"
+
 typedef struct {
     PyObject_HEAD
     PyObject *filepath;
     AVFormatContext *fmt_ctx;
+    AVDictionaryEntry *current_tag; /* Used for iteration: for tag in song */
 } Song;
 
 /* Required for cyclic garbage collection */
@@ -88,9 +91,7 @@ Song_getfilepath(Song *self, void *closure)
 static PyObject *
 Song_getitem(Song *self, PyObject *key)
 {
-    PyObject *ascii_path = PyUnicode_AsASCIIString(key);
-    char *str = PyBytes_AsString(ascii_path);
-
+    char *str = PyUnicode_AsUTF8(key);
     AVDictionaryEntry *tag = NULL;
     while ((tag = av_dict_get(self->fmt_ctx->metadata,
                               "", tag, AV_DICT_IGNORE_SUFFIX))) {
@@ -109,16 +110,16 @@ Song_setitem(Song *self, PyObject *key, PyObject *value)
         PyErr_SetString(PyExc_TypeError, "Key must be a string");
         return -1;
     }
-    PyObject *ascii_key = PyUnicode_AsASCIIString(key);
-    char *char_key = PyBytes_AsString(ascii_key);
+    char *char_key = PyUnicode_AsUTF8(key);
     char *char_value = NULL;
     if (value != NULL) {
         PyObject *str_value = PyObject_Str(value);
-        PyObject *ascii_value = PyUnicode_AsASCIIString(str_value);
-        char_value = PyBytes_AsString(ascii_value);
+        char_value = PyUnicode_AsUTF8(str_value);
+        Py_XDECREF(str_value);
     }
     return av_dict_set(&(self->fmt_ctx->metadata),
                        char_key, char_value, AV_DICT_IGNORE_SUFFIX);
+    return 0;
 }
 
 static PyObject *
@@ -128,7 +129,7 @@ Song_print(Song *self)
     while ((tag = av_dict_get(self->fmt_ctx->metadata,
                               "", tag, AV_DICT_IGNORE_SUFFIX))) {
         char *key = tag->key;
-        int i = 0;
+        unsigned int i = 0;
         for (; key[i]; i++) {
             key[i] = tolower(key[i]);
         }
@@ -170,32 +171,124 @@ Song_play(Song *self)
         PyErr_SetString(PyExc_IOError, "Unable to open codec context");
         return NULL;
     }
-    AVPacket packet;
-    if (av_read_frame(self->fmt_ctx, &packet) < 1) {
-        Py_RETURN_NONE;
-    }
-    AVFrame *frame = avcodec_alloc_frame();
-    int has_next = 1;
-    i = 0;
-    while (has_next != 0) {
-        int processed = avcodec_decode_audio4(codec_ctx, frame,
-                                              &has_next, &packet);
-        if (processed < 0) {
-            PyErr_SetString(PyExc_IOError,
-                "Something went wrong processing the stream");
-            return NULL;
-        }
-        printf(" has_next: %d\n", has_next);
-        printf("processed: %d\n", processed);
-        if (i++ > 1000) {
-            break;
-        }
+
+    if (Playback_play(codec_ctx, self->fmt_ctx, audio_stream) < 0) {
+        PyErr_SetString(PyExc_IOError, "An error occurred in sdl");
+        return NULL;
     }
     Py_RETURN_NONE;
 }
 
+PyObject *
+Song_iter(PyObject *self)
+{
+    Py_INCREF(self);
+    return self;
+}
+
+PyObject *
+Song_iternext(PyObject *self_as_obj)
+{
+    Song *self = (Song *)self_as_obj;
+    self->current_tag = av_dict_get(self->fmt_ctx->metadata, "",
+                                         self->current_tag,
+                                         AV_DICT_IGNORE_SUFFIX);
+    if (self->current_tag == NULL) {
+        PyErr_SetNone(PyExc_StopIteration);
+        return NULL;
+    }
+    char *lower_tag = self->current_tag->key;
+    unsigned int i = 0;
+    for (; lower_tag[i]; i++) {
+        lower_tag[i] = tolower(lower_tag[i]);
+    }
+    return PyUnicode_FromString(lower_tag);
+}
+
+static Py_ssize_t
+Song_len(Song *self)
+{
+    unsigned int len = 0;
+    AVDictionaryEntry *tag = NULL;
+    while ((tag = av_dict_get(self->fmt_ctx->metadata,
+                              "", tag, AV_DICT_IGNORE_SUFFIX))) {
+        len++;
+    }
+    return (Py_ssize_t)len;
+}
+
+int
+Song_contains(PyObject *self_as_obj, PyObject *key)
+{
+    Song *self = (Song *)self_as_obj;
+
+    char *str = PyUnicode_AsUTF8(key);
+    AVDictionaryEntry *tag = NULL;
+    while ((tag = av_dict_get(self->fmt_ctx->metadata,
+                              "", tag, AV_DICT_IGNORE_SUFFIX))) {
+        if (strcasecmp(str, tag->key) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static PyObject *
+Song_str(Song *self)
+{
+    char *ret = "audiotools.Song(";
+    AVDictionaryEntry *tag = NULL;
+    AVDictionaryEntry *next = av_dict_get(self->fmt_ctx->metadata, "", NULL,
+                                          AV_DICT_IGNORE_SUFFIX);
+    while ((next = av_dict_get(self->fmt_ctx->metadata,
+                              "", tag, AV_DICT_IGNORE_SUFFIX))) {
+        char *prefix;
+        if (tag == NULL) {
+            prefix = "";
+        } else {
+            prefix = ", ";
+        }
+        char *key = next->key;
+        char *value_start = "='";
+        char *value_end = "'";
+        unsigned int i = 0;
+        for (; key[i]; i++) {
+            key[i] = tolower(key[i]);
+        }
+        char *tmp = malloc(strlen(ret) + strlen(key) + strlen(next->value) +
+                           strlen(prefix) + strlen(value_start) +
+                           strlen(value_end) + 1);
+        strcpy(tmp, ret);
+        strcat(tmp, prefix);
+        strcat(tmp, key);
+        strcat(tmp, value_start);
+        strcat(tmp, next->value);
+        strcat(tmp, value_end);
+        ret = tmp;
+        tag = next;
+    }
+    char *tmp = malloc(strlen(ret) + 2);
+    strcpy(tmp, ret);
+    strcat(tmp, ")");
+    return PyUnicode_FromString(tmp);
+}
+
+/* Use the same hack as Pythons builtin dict */
+static PySequenceMethods Song_as_sequence = {
+    0,                          /* sq_length */
+    0,                          /* sq_concat */
+    0,                          /* sq_repeat */
+    0,                          /* sq_item */
+    0,                          /* sq_slice */
+    0,                          /* sq_ass_item */
+    0,                          /* sq_ass_slice */
+    Song_contains,              /* sq_contains */
+    0,                          /* sq_inplace_concat */
+    0,                          /* sq_inplace_repeat */
+};
+
 static PyMappingMethods Song_as_mapping = {
-    0,
+    (lenfunc)Song_len,
     (binaryfunc)Song_getitem,
     (objobjargproc)Song_setitem
 };
@@ -225,24 +318,23 @@ static PyTypeObject SongType = {
     0,                         /* tp_reserved */
     0,                         /* tp_repr */
     0,                         /* tp_as_number */
-    0,                         /* tp_as_sequence */
+    &Song_as_sequence,         /* tp_as_sequence */
     &Song_as_mapping,          /* tp_as_mapping */
     0,                         /* tp_hash  */
     0,                         /* tp_call */
-    0,                         /* tp_str */
+    (reprfunc)Song_str,        /* tp_str */
     0,                         /* tp_getattro */
     0,                         /* tp_setattro */
     0,                         /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT |
-        Py_TPFLAGS_BASETYPE |
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
         Py_TPFLAGS_HAVE_GC,    /* tp_flags */
     "Song objects",            /* tp_doc */
     (traverseproc)Song_traverse, /* tp_traverse */
     (inquiry)Song_clear,       /* tp_clear */
     0,                         /* tp_richcompare */
     0,                         /* tp_weaklistoffset */
-    0,                         /* tp_iter */
-    0,                         /* tp_iternext */
+    Song_iter,                 /* tp_iter */
+    Song_iternext,             /* tp_iternext */
     Song_methods,              /* tp_methods */
     0,                         /* tp_members */
     Song_getseters,            /* tp_getset */
@@ -270,12 +362,14 @@ PyInit_audiotools(void)
     PyObject* module;
     av_register_all();
 
-    if (PyType_Ready(&SongType) < 0)
+    if (PyType_Ready(&SongType) < 0) {
         return NULL;
+    }
 
     module = PyModule_Create(&audiotoolsmodule);
-    if (module == NULL)
+    if (module == NULL) {
         return NULL;
+    }
 
     Py_INCREF(&SongType);
     PyModule_AddObject(module, "Song", (PyObject *)&SongType);
