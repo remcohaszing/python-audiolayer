@@ -11,11 +11,12 @@ typedef struct {
     SDL_cond *cond;
 } PacketQueue;
 
-int Playback_play(AVCodecContext *codex_context, AVFormatContext *format_context,
-                  AVStream *audio_stream);
+int Playback_play(AVFormatContext *fmt_ctx);
 
 int Playback_pause(int i);
 
 int Playback_stop(int i);
+
+int Playback_init(void);
 
 #endif

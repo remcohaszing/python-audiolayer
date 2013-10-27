@@ -49,11 +49,13 @@ Song_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     return (PyObject *)self;
 }
 
-/*define PyDoc_STRVAR(song_init__doc__,*/
+/*PyDoc_STRVAR(song_init__doc__,*/
 /*"Song(path) -> New Song object read from path.\n\*/
 /*\n\*/
 /*Initializes a new Song object containing metadata from the file at the given \*/
-/*path. libav is used to read data from and write data to the file.")*/
+/*path. libav is used to read data from and write data to the file.");*/
+PyDoc_STRVAR(Song_play__doc__, "Start or continue playing this song.");
+
 static int
 Song_init(Song *self, PyObject *args, PyObject *kwds)
 {
@@ -141,41 +143,77 @@ Song_print(Song *self)
 static PyObject *
 Song_play(Song *self)
 {
-    if(avformat_find_stream_info(self->fmt_ctx, NULL) < 0) {
-        PyErr_SetString(PyExc_IOError, "Unable to find stream info");
-        return NULL;
-    }
-    int i = 0;
-    AVStream *audio_stream = NULL;
-    for (; i < self->fmt_ctx->nb_streams; i++) {
-        if (self->fmt_ctx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) {
-            audio_stream = self->fmt_ctx->streams[i];
-            break;
-        }
-    }
-    if (audio_stream == NULL) {
-        PyErr_SetString(PyExc_IOError, "No audio stream found");
-        return NULL;
-    }
-    AVCodec *codec = avcodec_find_decoder(audio_stream->codec->codec_id);
-    if (codec == NULL) {
-        PyErr_SetString(PyExc_IOError, "No audio decoder found");
-        return NULL;
-    }
-    AVCodecContext *codec_ctx = avcodec_alloc_context3(codec);
-    if (codec_ctx == NULL) {
-        PyErr_SetString(PyExc_IOError, "No context found for codec");
-        return NULL;
-    }
-    if (avcodec_open2(codec_ctx, codec, NULL) < 0) {
-        PyErr_SetString(PyExc_IOError, "Unable to open codec context");
-        return NULL;
-    }
-
-    if (Playback_play(codec_ctx, self->fmt_ctx, audio_stream) < 0) {
+    if (Playback_play(self->fmt_ctx) < 0) {
         PyErr_SetString(PyExc_IOError, "An error occurred in sdl");
         return NULL;
     }
+    Py_RETURN_NONE;
+}
+
+static PyObject *
+Song_save(Song *self)
+{
+/*    char *out_name = "out.flac";*/
+/*    AVOutputFormat *ofmt = av_guess_format(self->fmt_ctx->iformat->name, out_name, NULL);*/
+/*    if (!ofmt) {*/
+/*        PyErr_SetString(PyExc_IOError, "Unable to detect output format.");*/
+/*        return NULL;*/
+/*    }*/
+/*    AVFormatContext * output_format_context = avformat_alloc_context();*/
+/*    if (!output_format_context) {*/
+/*        PyErr_SetString(PyExc_IOError, "Unable to allocate output context");*/
+/*        return NULL;*/
+/*    }*/
+/*    output_format_context->oformat = ofmt;*/
+/*    if (!(ofmt->flags & AVFMT_NOFILE)) {*/
+/*        if (avio_open(&self->fmt_ctx->pb, out_name, AVIO_FLAG_WRITE) < 0) {*/
+/*            PyErr_SetString(PyExc_IOError, "Error 1");*/
+/*            return NULL;*/
+/*        }*/
+/*    }*/
+/*    unsigned int i = 0;*/
+/*    for (; i < self->fmt_ctx->nb_streams; i++) {*/
+/*        AVStream *in_stream = self->fmt_ctx->streams[i];*/
+/*        AVStream *out_stream = avformat_new_stream(output_format_context, NULL);*/
+/*        if (!out_stream) {*/
+/*            PyErr_SetString(PyExc_IOError, "Error 2");*/
+/*            return NULL;*/
+/*        }*/
+/*    }*/
+
+
+
+/*    if(avformat_find_stream_info(self->fmt_ctx, NULL) < 0) {*/
+/*        PyErr_SetString(PyExc_IOError, "Unable to find stream info");*/
+/*        return NULL;*/
+/*    }*/
+/*    int i = 0;*/
+/*    AVStream *audio_stream = NULL;*/
+/*    for (; i < self->fmt_ctx->nb_streams; i++) {*/
+/*        if (self->fmt_ctx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) {*/
+/*            audio_stream = self->fmt_ctx->streams[i];*/
+/*            break;*/
+/*        }*/
+/*    }*/
+    printf("Writing metadata\n");
+/*    if (avformat_write_header(self->fmt_ctx, NULL) < 0) {*/
+/*        PyErr_SetString(PyExc_IOError, "Could not write header.");*/
+/*        return NULL;*/
+/*    }*/
+
+
+
+/*    printf("Done writing metadata\n");*/
+/*    printf("Writing frames\n");*/
+/*    AVPacket packet;*/
+/*    while (av_read_frame(self->fmt_ctx, &packet) >= 0) {*/
+/*        if (av_write_frame(self->fmt_ctx, &packet) < 0) {*/
+/*            PyErr_SetString(PyExc_IOError, "Error writing stream.");*/
+/*            return NULL;*/
+/*        }*/
+/*        printf("Writing\n");*/
+/*    }*/
+/*    printf("Done writing frames\n");*/
     Py_RETURN_NONE;
 }
 
@@ -301,8 +339,8 @@ static PyGetSetDef Song_getseters[] = {
 
 static PyMethodDef Song_methods[] = {
     {"print", (PyCFunction)Song_print, METH_NOARGS, "Print all metadata."},
-    {"play", (PyCFunction)Song_play, METH_NOARGS,
-     "Start or continue playing this song."},
+    {"save", (PyCFunction)Song_save, METH_NOARGS, ""},
+    {"play", (PyCFunction)Song_play, METH_NOARGS, Song_play__doc__},
     {NULL}  /* Sentinel */
 };
 
