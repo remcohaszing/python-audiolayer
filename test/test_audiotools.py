@@ -3,6 +3,7 @@
 import os
 import unittest
 
+from audiotools import NoMediaException
 from audiotools import Song
 
 
@@ -11,6 +12,61 @@ from audiotools import Song
 # http://www.machinaesupremacy.com/downloads/
 testfile = os.path.join(os.path.dirname(__import__(__name__).__file__),
                         'test.flac')
+
+
+class TestInitSong(unittest.TestCase):
+    """
+    Test that it is possible to initialize a Song object.
+
+    """
+    def test_valid_song(self):
+        """
+        Test initializing a Song correctly.
+
+        """
+        song = Song(testfile)
+        self.assertIsInstance(song, Song)
+
+    def test_no_args(self):
+        """
+        Test initializing a song without a filename.
+
+        """
+        with self.assertRaises(TypeError):
+            Song()
+
+    def test_invalid_filetype(self):
+        """
+        Test initializing a Song using a file of an invalid type.
+
+        """
+        errfile = __import__(__name__).__file__
+        with self.assertRaises(NoMediaException) as ctx:
+            Song(errfile)
+        # Should use filename instead of args[2] as soon as
+        # NoMediaException subclasses OSError.
+        self.assertEqual(ctx.exception.args[2], errfile)
+
+    def test_directory(self):
+        """
+        Test initializing using a filename which refers to a directory.
+
+        """
+        testdir = os.path.dirname(__import__(__name__).__file__)
+        with self.assertRaises(IsADirectoryError) as ctx:
+            Song(testdir)
+        self.assertEqual(ctx.exception.filename, testdir)
+
+    def test_non_existing_file(self):
+        """
+        Test initializing a Song using a filename which does not exist.
+
+        """
+        errfile = 'f' * 200
+        with self.assertRaises(FileNotFoundError) as ctx:
+            # File may not exist for this test wo work.
+            Song(errfile)
+        self.assertEqual(ctx.exception.filename, errfile)
 
 
 class TestSongMetadata(unittest.TestCase):
@@ -145,6 +201,37 @@ class TestSongMetadata(unittest.TestCase):
         for tag in song:
             self.assertIn(tag, value)
             self.assertIn(song[tag], value)
+
+
+class TestSongAudioInfo(unittest.TestCase):
+    """
+    Test getting some data about the audio stream.
+
+    """
+    def test_duration(self):
+        """
+        Test the duration of a file is retrieved correctly in seconds.
+
+        """
+        song = Song(testfile)
+        self.assertAlmostEqual(song.duration, 119.188, 3)
+
+    def test_sample_rate(self):
+        """
+        Test the sample rate of the file is retrieved correctly.
+
+        """
+        song = Song(testfile)
+        self.assertEqual(song.sample_rate, 44100)
+
+    def test_channels(self):
+        """
+        Test the amount of channels of the audio stream is retrieved
+        correctly.
+
+        """
+        song = Song(testfile)
+        self.assertEqual(song.channels, 2)
 
 
 if __name__ == '__main__':

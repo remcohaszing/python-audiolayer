@@ -13,8 +13,14 @@ typedef struct {
     PyObject_HEAD
     PyObject *filepath;
     AVFormatContext *fmt_ctx;
+    AVStream *audio_stream;
+    AVCodec *codec;
+    AVCodecContext *codec_ctx;
     AVDictionaryEntry *current_tag; /* Used for iteration: for tag in song */
 } Song;
+
+/* Exception definitions */
+static PyObject *NoMediaException;
 
 /* Required for cyclic garbage collection */
 static int
@@ -36,7 +42,12 @@ static void
 Song_dealloc(Song* self)
 {
     Song_clear(self);
-    avformat_free_context(self->fmt_ctx);
+    if (self->codec_ctx != NULL) {
+        avcodec_close(self->codec_ctx);
+    }
+    if (self->fmt_ctx != NULL) {
+        avformat_free_context(self->fmt_ctx);
+    }
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
@@ -60,11 +71,11 @@ static int
 Song_init(Song *self, PyObject *args, PyObject *kwds)
 {
     PyObject *obj;
-    int ret;
     PyObject *tmp;
 
-    if (!PyArg_ParseTuple(args, "U", &obj))
+    if (!PyArg_ParseTuple(args, "U", &obj)) {
         return -1;
+    }
 
     PyObject *ascii_path = PyUnicode_AsASCIIString(obj);
     char *str = PyBytes_AsString(ascii_path);
@@ -75,12 +86,45 @@ Song_init(Song *self, PyObject *args, PyObject *kwds)
         self->filepath = obj;
         Py_XDECREF(tmp);
     }
-    if((ret = avformat_open_input(&self->fmt_ctx, str, NULL, NULL)) < 0) {
-        PyErr_SetString(PyExc_FileNotFoundError, "File not found");
+    int result = avformat_open_input(&self->fmt_ctx, str, NULL, NULL);
+    switch (result) {
+        case -1:
+            PyErr_SetFromErrnoWithFilename(PyExc_IsADirectoryError, str);
+            return -1;
+        case -2:
+            PyErr_SetFromErrnoWithFilename(PyExc_FileNotFoundError, str);
+            return -1;
+        case -1094995529:
+            PyErr_SetFromErrnoWithFilename(NoMediaException, str);
+            return -1;
+    }
+    if (result < 0) {
+        PyErr_SetString(PyExc_RuntimeError,
+                        "An unknown exception has occurred.");
         return -1;
     }
+    /* This is 20 times the default, is this ok? */
+    self->fmt_ctx->max_analyze_duration = 100000000;
 
-    return ret;
+    /* This is required for formats with no header info. */
+    if (avformat_find_stream_info(self->fmt_ctx, NULL) < 0) {
+        PyErr_SetString(PyExc_IOError, "Cannot find stream info.");
+        return -1;
+    }
+    unsigned int i = 0;
+    for (; i < self->fmt_ctx->nb_streams; i++) {
+        if (self->fmt_ctx->streams[i]->codec->codec_type ==
+                AVMEDIA_TYPE_AUDIO) {
+            self->audio_stream = self->fmt_ctx->streams[i];
+            break;
+        }
+    }
+    if (self->audio_stream == NULL) {
+        PyErr_SetString(PyExc_IOError, "Cannot find audio stream.");
+        return -1;
+    }
+    self->codec_ctx = self->audio_stream->codec;
+    return 0;
 }
 
 static PyObject *
@@ -88,6 +132,28 @@ Song_getfilepath(Song *self, void *closure)
 {
     Py_INCREF(self->filepath);
     return self->filepath;
+}
+
+static PyObject *
+Song_getduration(Song *self, void *closure)
+{
+    /*
+     * The duration is stored in nanoseconds.
+     * Return as a python float in seconds for usability.
+     */
+    return PyFloat_FromDouble((double)self->fmt_ctx->duration / AV_TIME_BASE);
+}
+
+static PyObject *
+Song_getsamplerate(Song *self, void *closure)
+{
+    return PyLong_FromLong(self->codec_ctx->sample_rate);
+}
+
+static PyObject *
+Song_getchannels(Song *self, void *closure)
+{
+    return PyLong_FromLong(self->codec_ctx->channels);
 }
 
 static PyObject *
@@ -334,6 +400,12 @@ static PyMappingMethods Song_as_mapping = {
 static PyGetSetDef Song_getseters[] = {
     {"filepath", (getter)Song_getfilepath, NULL,
      "The path of the file.", NULL},
+    {"duration", (getter)Song_getduration, NULL,
+     "The duration of the file in seconds.", NULL},
+    {"sample_rate", (getter)Song_getsamplerate, NULL,
+     "The sample rate of the file.", NULL},
+    {"channels", (getter)Song_getchannels, NULL,
+     "The number of audio channels of the file.", NULL},
     {NULL}
 };
 
@@ -346,44 +418,44 @@ static PyMethodDef Song_methods[] = {
 
 static PyTypeObject SongType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "audiotools.Song",         /* tp_name */
-    sizeof(Song),              /* tp_basicsize */
-    0,                         /* tp_itemsize */
-    (destructor)Song_dealloc,  /* tp_dealloc */
-    0,                         /* tp_print */
-    0,                         /* tp_getattr */
-    0,                         /* tp_setattr */
-    0,                         /* tp_reserved */
-    0,                         /* tp_repr */
-    0,                         /* tp_as_number */
-    &Song_as_sequence,         /* tp_as_sequence */
-    &Song_as_mapping,          /* tp_as_mapping */
-    0,                         /* tp_hash  */
-    0,                         /* tp_call */
-    (reprfunc)Song_str,        /* tp_str */
-    0,                         /* tp_getattro */
-    0,                         /* tp_setattro */
-    0,                         /* tp_as_buffer */
+    "audiotools.Song",           /* tp_name */
+    sizeof(Song),                /* tp_basicsize */
+    0,                           /* tp_itemsize */
+    (destructor)Song_dealloc,    /* tp_dealloc */
+    0,                           /* tp_print */
+    0,                           /* tp_getattr */
+    0,                           /* tp_setattr */
+    0,                           /* tp_reserved */
+    0,                           /* tp_repr */
+    0,                           /* tp_as_number */
+    &Song_as_sequence,           /* tp_as_sequence */
+    &Song_as_mapping,            /* tp_as_mapping */
+    0,                           /* tp_hash  */
+    0,                           /* tp_call */
+    (reprfunc)Song_str,          /* tp_str */
+    0,                           /* tp_getattro */
+    0,                           /* tp_setattro */
+    0,                           /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
-        Py_TPFLAGS_HAVE_GC,    /* tp_flags */
-    "Song objects",            /* tp_doc */
+        Py_TPFLAGS_HAVE_GC,      /* tp_flags */
+    "Song objects",              /* tp_doc */
     (traverseproc)Song_traverse, /* tp_traverse */
-    (inquiry)Song_clear,       /* tp_clear */
-    0,                         /* tp_richcompare */
-    0,                         /* tp_weaklistoffset */
-    Song_iter,                 /* tp_iter */
-    Song_iternext,             /* tp_iternext */
-    Song_methods,              /* tp_methods */
-    0,                         /* tp_members */
-    Song_getseters,            /* tp_getset */
-    0,                         /* tp_base */
-    0,                         /* tp_dict */
-    0,                         /* tp_descr_get */
-    0,                         /* tp_descr_set */
-    0,                         /* tp_dictoffset */
-    (initproc)Song_init,       /* tp_init */
-    0,                         /* tp_alloc */
-    Song_new,                  /* tp_new */
+    (inquiry)Song_clear,         /* tp_clear */
+    0,                           /* tp_richcompare */
+    0,                           /* tp_weaklistoffset */
+    Song_iter,                   /* tp_iter */
+    Song_iternext,               /* tp_iternext */
+    Song_methods,                /* tp_methods */
+    0,                           /* tp_members */
+    Song_getseters,              /* tp_getset */
+    0,                           /* tp_base */
+    0,                           /* tp_dict */
+    0,                           /* tp_descr_get */
+    0,                           /* tp_descr_set */
+    0,                           /* tp_dictoffset */
+    (initproc)Song_init,         /* tp_init */
+    0,                           /* tp_alloc */
+    Song_new,                    /* tp_new */
 };
 
 static PyModuleDef audiotoolsmodule = {
@@ -409,6 +481,10 @@ PyInit_audiotools(void)
         return NULL;
     }
 
+    NoMediaException = PyErr_NewException("audiotools.NoMediaException",
+                                          NULL, NULL);
+    Py_INCREF(NoMediaException);
+    PyModule_AddObject(module, "NoMediaException", NoMediaException);
     Py_INCREF(&SongType);
     PyModule_AddObject(module, "Song", (PyObject *)&SongType);
     return module;

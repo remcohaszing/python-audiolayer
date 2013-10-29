@@ -18,6 +18,7 @@ Requirements
 - libavcodec
 - libavformat
 - libavutil
+- libsdl2
 
 
 Installation
@@ -78,8 +79,11 @@ Playback (not implemented):
 Testing
 -------
 
-The unittests for this project require nose_ to be installed.
-To run the tests go to the project root directory and run::
+The unittests can be run using::
+
+    python3 setup.py test
+
+It is also possible to use nose_ to run the tests::
 
     python3 setup.py nosetests
 
