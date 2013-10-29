@@ -5,7 +5,6 @@
 #include <structmember.h>
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
-#include <libavutil/dict.h>
 
 #include "playback.h"
 
