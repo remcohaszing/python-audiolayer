@@ -16,9 +16,9 @@ with open('README.rst') as f:
 libav = ['avformat', 'avutil']
 
 # Playback
-libsdl = ['SDL2']
+libportaudio = ['portaudio']
 
-c_libs = libav + libsdl
+c_libs = libav + libportaudio
 
 
 setup(

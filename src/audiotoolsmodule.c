@@ -1,5 +1,4 @@
 #include <Python.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <strings.h>
 #include <structmember.h>
@@ -8,18 +7,22 @@
 
 #include "playback.h"
 
+/**
+ * Exception definitions.
+ */
+static PyObject *NoMediaException;
+
+/**
+ * Definitions for the Song class.
+ */
 typedef struct {
     PyObject_HEAD
     PyObject *filepath;
     AVFormatContext *fmt_ctx;
     AVStream *audio_stream;
-    AVCodec *codec;
     AVCodecContext *codec_ctx;
     AVDictionaryEntry *current_tag; /* Used for iteration: for tag in song */
 } Song;
-
-/* Exception definitions */
-static PyObject *NoMediaException;
 
 /* Required for cyclic garbage collection */
 static int
@@ -35,7 +38,6 @@ Song_clear(Song *self)
     Py_CLEAR(self->filepath);
     return 0;
 }
-
 
 static void
 Song_dealloc(Song* self)
@@ -59,12 +61,24 @@ Song_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     return (PyObject *)self;
 }
 
-/*PyDoc_STRVAR(song_init__doc__,*/
-/*"Song(path) -> New Song object read from path.\n\*/
-/*\n\*/
-/*Initializes a new Song object containing metadata from the file at the given \*/
-/*path. libav is used to read data from and write data to the file.");*/
+/* Song objecty docstring */
+PyDoc_STRVAR(Song_doc, "This class represents an audio file.\n\
+\n\
+This class loads an audio file and reads its metadata and stream info. The \
+metadata can be read from a Song object using subscript. Example using the \
+test file provided in the test directory:\n\
+\n\
+>>> song = Song('test.flac')\n\
+>>> song['artist']\n\
+Machinae Supremacy\n\
+>>>");
+/* Method docstrings */
 PyDoc_STRVAR(Song_play__doc__, "Start or continue playing this song.");
+/* Property docstrings */
+PyDoc_STRVAR(Song_filepath__doc__, "The path of the file.");
+PyDoc_STRVAR(Song_duration__doc__, "The duration of the file in seconds.");
+PyDoc_STRVAR(Song_samplerate__doc__, "The sample rate of the file.");
+PyDoc_STRVAR(Song_channels__doc__, "The number of audio channels of the file");
 
 static int
 Song_init(Song *self, PyObject *args, PyObject *kwds)
@@ -76,8 +90,7 @@ Song_init(Song *self, PyObject *args, PyObject *kwds)
         return -1;
     }
 
-    PyObject *ascii_path = PyUnicode_AsASCIIString(obj);
-    char *str = PyBytes_AsString(ascii_path);
+    char *str = PyUnicode_AsUTF8(obj);
 
     if (obj) {
         tmp = self->filepath;
@@ -126,6 +139,9 @@ Song_init(Song *self, PyObject *args, PyObject *kwds)
     return 0;
 }
 
+/**
+ * Property getters.
+ */
 static PyObject *
 Song_getfilepath(Song *self, void *closure)
 {
@@ -155,6 +171,9 @@ Song_getchannels(Song *self, void *closure)
     return PyLong_FromLong(self->codec_ctx->channels);
 }
 
+/**
+ * Subscript functions.
+ */
 static PyObject *
 Song_getitem(Song *self, PyObject *key)
 {
@@ -182,13 +201,15 @@ Song_setitem(Song *self, PyObject *key, PyObject *value)
     if (value != NULL) {
         PyObject *str_value = PyObject_Str(value);
         char_value = PyUnicode_AsUTF8(str_value);
-        Py_XDECREF(str_value);
     }
     return av_dict_set(&(self->fmt_ctx->metadata),
                        char_key, char_value, AV_DICT_IGNORE_SUFFIX);
     return 0;
 }
 
+/**
+ * Methods.
+ */
 static PyObject *
 Song_print(Song *self)
 {
@@ -208,8 +229,8 @@ Song_print(Song *self)
 static PyObject *
 Song_play(Song *self)
 {
-    if (Playback_play(self->fmt_ctx) < 0) {
-        PyErr_SetString(PyExc_IOError, "An error occurred in sdl");
+    if (Playback_play(self->fmt_ctx, self->codec_ctx, self->audio_stream) < 0) {
+        PyErr_SetString(PyExc_IOError, "An error occurred");
         return NULL;
     }
     Py_RETURN_NONE;
@@ -218,84 +239,25 @@ Song_play(Song *self)
 static PyObject *
 Song_save(Song *self)
 {
-/*    char *out_name = "out.flac";*/
-/*    AVOutputFormat *ofmt = av_guess_format(self->fmt_ctx->iformat->name, out_name, NULL);*/
-/*    if (!ofmt) {*/
-/*        PyErr_SetString(PyExc_IOError, "Unable to detect output format.");*/
-/*        return NULL;*/
-/*    }*/
-/*    AVFormatContext * output_format_context = avformat_alloc_context();*/
-/*    if (!output_format_context) {*/
-/*        PyErr_SetString(PyExc_IOError, "Unable to allocate output context");*/
-/*        return NULL;*/
-/*    }*/
-/*    output_format_context->oformat = ofmt;*/
-/*    if (!(ofmt->flags & AVFMT_NOFILE)) {*/
-/*        if (avio_open(&self->fmt_ctx->pb, out_name, AVIO_FLAG_WRITE) < 0) {*/
-/*            PyErr_SetString(PyExc_IOError, "Error 1");*/
-/*            return NULL;*/
-/*        }*/
-/*    }*/
-/*    unsigned int i = 0;*/
-/*    for (; i < self->fmt_ctx->nb_streams; i++) {*/
-/*        AVStream *in_stream = self->fmt_ctx->streams[i];*/
-/*        AVStream *out_stream = avformat_new_stream(output_format_context, NULL);*/
-/*        if (!out_stream) {*/
-/*            PyErr_SetString(PyExc_IOError, "Error 2");*/
-/*            return NULL;*/
-/*        }*/
-/*    }*/
-
-
-
-/*    if(avformat_find_stream_info(self->fmt_ctx, NULL) < 0) {*/
-/*        PyErr_SetString(PyExc_IOError, "Unable to find stream info");*/
-/*        return NULL;*/
-/*    }*/
-/*    int i = 0;*/
-/*    AVStream *audio_stream = NULL;*/
-/*    for (; i < self->fmt_ctx->nb_streams; i++) {*/
-/*        if (self->fmt_ctx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) {*/
-/*            audio_stream = self->fmt_ctx->streams[i];*/
-/*            break;*/
-/*        }*/
-/*    }*/
-    printf("Writing metadata\n");
-/*    if (avformat_write_header(self->fmt_ctx, NULL) < 0) {*/
-/*        PyErr_SetString(PyExc_IOError, "Could not write header.");*/
-/*        return NULL;*/
-/*    }*/
-
-
-
-/*    printf("Done writing metadata\n");*/
-/*    printf("Writing frames\n");*/
-/*    AVPacket packet;*/
-/*    while (av_read_frame(self->fmt_ctx, &packet) >= 0) {*/
-/*        if (av_write_frame(self->fmt_ctx, &packet) < 0) {*/
-/*            PyErr_SetString(PyExc_IOError, "Error writing stream.");*/
-/*            return NULL;*/
-/*        }*/
-/*        printf("Writing\n");*/
-/*    }*/
-/*    printf("Done writing frames\n");*/
     Py_RETURN_NONE;
 }
 
-PyObject *
+/**
+ * Iteration and sequence functions.
+ */
+static PyObject *
 Song_iter(PyObject *self)
 {
     Py_INCREF(self);
     return self;
 }
 
-PyObject *
+static PyObject *
 Song_iternext(PyObject *self_as_obj)
 {
     Song *self = (Song *)self_as_obj;
     self->current_tag = av_dict_get(self->fmt_ctx->metadata, "",
-                                         self->current_tag,
-                                         AV_DICT_IGNORE_SUFFIX);
+                                    self->current_tag, AV_DICT_IGNORE_SUFFIX);
     if (self->current_tag == NULL) {
         PyErr_SetNone(PyExc_StopIteration);
         return NULL;
@@ -320,7 +282,7 @@ Song_len(Song *self)
     return (Py_ssize_t)len;
 }
 
-int
+static int
 Song_contains(PyObject *self_as_obj, PyObject *key)
 {
     Song *self = (Song *)self_as_obj;
@@ -376,7 +338,10 @@ Song_str(Song *self)
     return PyUnicode_FromString(tmp);
 }
 
-/* Use the same hack as Pythons builtin dict */
+/**
+ * Song mappings.
+ */
+/* Use the same hack as Pythons builtin dict to support: tag in song */
 static PySequenceMethods Song_as_sequence = {
     0,                          /* sq_length */
     0,                          /* sq_concat */
@@ -397,14 +362,11 @@ static PyMappingMethods Song_as_mapping = {
 };
 
 static PyGetSetDef Song_getseters[] = {
-    {"filepath", (getter)Song_getfilepath, NULL,
-     "The path of the file.", NULL},
-    {"duration", (getter)Song_getduration, NULL,
-     "The duration of the file in seconds.", NULL},
+    {"filepath", (getter)Song_getfilepath, NULL, Song_filepath__doc__, NULL},
+    {"duration", (getter)Song_getduration, NULL, Song_duration__doc__, NULL},
     {"sample_rate", (getter)Song_getsamplerate, NULL,
-     "The sample rate of the file.", NULL},
-    {"channels", (getter)Song_getchannels, NULL,
-     "The number of audio channels of the file.", NULL},
+     Song_samplerate__doc__, NULL},
+    {"channels", (getter)Song_getchannels, NULL, Song_channels__doc__, NULL},
     {NULL}
 };
 
@@ -412,7 +374,7 @@ static PyMethodDef Song_methods[] = {
     {"print", (PyCFunction)Song_print, METH_NOARGS, "Print all metadata."},
     {"save", (PyCFunction)Song_save, METH_NOARGS, ""},
     {"play", (PyCFunction)Song_play, METH_NOARGS, Song_play__doc__},
-    {NULL}  /* Sentinel */
+    {NULL}
 };
 
 static PyTypeObject SongType = {
@@ -437,7 +399,7 @@ static PyTypeObject SongType = {
     0,                           /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
         Py_TPFLAGS_HAVE_GC,      /* tp_flags */
-    "Song objects",              /* tp_doc */
+    Song_doc,                    /* tp_doc */
     (traverseproc)Song_traverse, /* tp_traverse */
     (inquiry)Song_clear,         /* tp_clear */
     0,                           /* tp_richcompare */
@@ -457,12 +419,27 @@ static PyTypeObject SongType = {
     Song_new,                    /* tp_new */
 };
 
+/**
+ * Definitions for the audiotools module.
+ */
+PyDoc_STRVAR(audiotools__doc__, "This module contains the Song object.");
+
+static void
+audiotools_free(void *unused)
+{
+    Playback_free();
+}
+
 static PyModuleDef audiotoolsmodule = {
-    PyModuleDef_HEAD_INIT,
-    "audiotools",
-    "This module serves as a wrapper around the libav C library.",
-    -1,
-    NULL, NULL, NULL, NULL, NULL
+    PyModuleDef_HEAD_INIT,      /* m_base */
+    "audiotools",               /* m_name */
+    audiotools__doc__,          /* m_doc */
+    -1,                         /* m_size */
+    NULL,                       /* m_methods */
+    NULL,                       /* m_reload */
+    NULL,                       /* m_traverse */
+    NULL,                       /* m_clear */
+    (freefunc)audiotools_free   /* m_free */
 };
 
 PyMODINIT_FUNC
@@ -470,6 +447,7 @@ PyInit_audiotools(void)
 {
     PyObject* module;
     av_register_all();
+    Playback_init();
 
     if (PyType_Ready(&SongType) < 0) {
         return NULL;
