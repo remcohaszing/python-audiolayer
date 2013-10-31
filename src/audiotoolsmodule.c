@@ -83,6 +83,12 @@ PyDoc_STRVAR(Song_channels__doc__, "The number of audio channels of the file");
 static int
 Song_init(Song *self, PyObject *args, PyObject *kwds)
 {
+    /* Song has already been initialized */
+    if (self->filepath != NULL) {
+        PyErr_SetString(PyExc_UserWarning,
+                        "This song object has already been initialized.");
+        return -1;
+    }
     PyObject *obj;
     PyObject *tmp;
 

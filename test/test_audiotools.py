@@ -2,6 +2,7 @@
 
 import os
 import unittest
+import warnings
 
 from audiotools import NoMediaException
 from audiotools import Song
@@ -67,6 +68,20 @@ class TestInitSong(unittest.TestCase):
             # File may not exist for this test wo work.
             Song(errfile)
         self.assertEqual(ctx.exception.filename, errfile)
+
+    def test_duplicate_init_call(self):
+        """
+        Test calling __init__ of an already initialized Song object
+        raises a UserWarning.
+
+        """
+        song = Song(testfile)
+        with self.assertRaises(UserWarning) as w:
+            song.__init__('f' * 200)
+        with self.assertRaises(UserWarning) as w:
+            song.__init__(os.path.dirname(__import__(__name__).__file__))
+        with self.assertRaises(UserWarning) as w:
+            song.__init__(testfile)
 
 
 class TestSongMetadata(unittest.TestCase):
