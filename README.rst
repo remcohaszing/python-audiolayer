@@ -3,7 +3,7 @@ Python Audiotools
 
 This package contains a Python 3 Extension for playing audio files, reading and
 writing metadata and converting those files. For decoding files the libav_
-library is used. Playback is handled by libsdl_.
+library is used. Playback is handled by libportaudio_.
 
 This is work in progress. The only things which are currently supported are
 reading and setting (not writing) metadata. The project website can be found at
@@ -18,7 +18,7 @@ Requirements
 - libavcodec
 - libavformat
 - libavutil
-- libsdl2
+- libportaudio
 
 
 Installation
@@ -108,7 +108,7 @@ This project is licensed under the BSD 3-Clause License.
 
 
 .. _libav: https://libav.org
-.. _libsdl: http://www.libsdl.org
+.. _libportaudio: http://portaudio.com/
 .. _nose: http://nose.readthedocs.org
 .. _pep7: http://www.python.org/dev/peps/pep-0007
 .. _pep8: http://www.python.org/dev/peps/pep-0008
