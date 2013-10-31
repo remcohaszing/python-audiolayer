@@ -18,6 +18,9 @@ static PyObject *NoMediaException;
 typedef struct {
     PyObject_HEAD
     PyObject *filepath;
+    PyObject *duration;
+    PyObject *sample_rate;
+    PyObject *channels;
     AVFormatContext *fmt_ctx;
     AVStream *audio_stream;
     AVCodecContext *codec_ctx;
@@ -142,6 +145,13 @@ Song_init(Song *self, PyObject *args, PyObject *kwds)
         return -1;
     }
     self->codec_ctx = self->audio_stream->codec;
+    self->duration = PyFloat_FromDouble((double)self->fmt_ctx->duration /
+                                         AV_TIME_BASE);
+    Py_INCREF(self->duration);
+    self->sample_rate = PyLong_FromLong(self->codec_ctx->sample_rate);
+    Py_INCREF(self->sample_rate);
+    self->channels = PyLong_FromLong(self->codec_ctx->channels);
+    Py_INCREF(self->channels);
     return 0;
 }
 
@@ -158,23 +168,22 @@ Song_getfilepath(Song *self, void *closure)
 static PyObject *
 Song_getduration(Song *self, void *closure)
 {
-    /*
-     * The duration is stored in nanoseconds.
-     * Return as a python float in seconds for usability.
-     */
-    return PyFloat_FromDouble((double)self->fmt_ctx->duration / AV_TIME_BASE);
+    Py_INCREF(self->duration);
+    return self->duration;
 }
 
 static PyObject *
 Song_getsamplerate(Song *self, void *closure)
 {
-    return PyLong_FromLong(self->codec_ctx->sample_rate);
+    Py_INCREF(self->sample_rate);
+    return self->sample_rate;
 }
 
 static PyObject *
 Song_getchannels(Song *self, void *closure)
 {
-    return PyLong_FromLong(self->codec_ctx->channels);
+    Py_INCREF(self->channels);
+    return self->channels;
 }
 
 /**

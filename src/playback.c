@@ -44,8 +44,10 @@ Playback_play(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx, AVStream *str
             paFloat32,
             codec_ctx->sample_rate,
             paFramesPerBufferUnspecified,
-            pa_stream_callback,
-            &codec_ctx);
+            NULL,
+            NULL);
+/*            pa_stream_callback,*/
+/*            &codec_ctx);*/
     if (err != paNoError) {
         printf("error1:  %d, %s\n", err, Pa_GetErrorText(err));
         return -1;
@@ -70,7 +72,11 @@ Playback_play(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx, AVStream *str
             continue;
         }
         if (got_frame) {
-            /* XXX */
+            err = Pa_WriteStream(pa_stream, packet.data, paFramesPerBufferUnspecified);
+            if (err != paNoError) {
+                printf("error1:  %d, %s\n", err, Pa_GetErrorText(err));
+                return -1;
+            }
         }
         av_free_packet(&packet);
     }
