@@ -1,9 +1,10 @@
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <portaudio.h>
 #include <Python.h>
 #include <stdio.h>
 #include <strings.h>
 #include <structmember.h>
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
 
 #include "playback.h"
 
@@ -16,15 +17,19 @@ static PyObject *NoMediaException;
  * Definitions for the Song class.
  */
 typedef struct {
+    /* Python */
     PyObject_HEAD
     PyObject *filepath;
     PyObject *duration;
     PyObject *sample_rate;
     PyObject *channels;
+    /* av */
     AVFormatContext *fmt_ctx;
     AVStream *audio_stream;
     AVCodecContext *codec_ctx;
     AVDictionaryEntry *current_tag; /* Used for iteration: for tag in song */
+    /* portaudio */
+    PaStream *pa_stream;
 } Song;
 
 /* Required for cyclic garbage collection */
@@ -241,13 +246,58 @@ Song_print(Song *self)
     Py_RETURN_NONE;
 }
 
+#define PaPy_CHECK_ERROR(error) \
+    if (error != paNoError) { \
+        PyErr_SetString(PyExc_OSError, Pa_GetErrorText(error)); \
+        return NULL; \
+    }
+
 static PyObject *
 Song_play(Song *self)
 {
-    if (Playback_play(self->fmt_ctx, self->codec_ctx, self->audio_stream) < 0) {
-        PyErr_SetString(PyExc_IOError, "An error occurred");
+    AVCodec *codec = avcodec_find_decoder(self->audio_stream->codec->codec_id);
+    if (codec == NULL) {
         return NULL;
     }
+    if (avcodec_find_decoder(self->codec_ctx->codec_id) < 0) {
+        return NULL;
+    }
+    if (avcodec_open2(self->codec_ctx, codec, NULL) < 0) {
+        return NULL;
+    }
+
+    PaError err = Pa_OpenDefaultStream(&self->pa_stream,
+                                       0,
+                                       self->codec_ctx->channels,
+                                       paFloat32,
+                                       self->codec_ctx->sample_rate,
+                                       paFramesPerBufferUnspecified,
+                                       NULL,
+                                       NULL);
+/*            self->pa_stream_callback,*/
+/*            &codec_ctx);*/
+    PaPy_CHECK_ERROR(err)
+    err = Pa_StartStream(self->pa_stream);
+    PaPy_CHECK_ERROR(err)
+    AVPacket packet;
+    while (av_read_frame(self->fmt_ctx, &packet) >= 0) {
+        if (packet.stream_index != self->audio_stream->index) {
+            continue;
+        }
+        AVFrame frame;
+        int got_frame;
+        int ret = avcodec_decode_audio4(self->codec_ctx, &frame,
+                                        &got_frame, &packet);
+        if (ret < 0) {
+            continue;
+        }
+        if (got_frame) {
+            err = Pa_WriteStream(self->pa_stream, *frame.data, ret);
+            PaPy_CHECK_ERROR(err)
+        }
+/*        av_free_packet(&packet);*/
+    }
+    printf("Done\n");
     Py_RETURN_NONE;
 }
 
