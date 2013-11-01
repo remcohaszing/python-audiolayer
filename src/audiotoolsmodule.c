@@ -6,8 +6,6 @@
 #include <strings.h>
 #include <structmember.h>
 
-#include "playback.h"
-
 /**
  * Exception definitions.
  */
@@ -512,7 +510,7 @@ PyDoc_STRVAR(audiotools__doc__, "This module contains the Song object.");
 static void
 audiotools_free(void *unused)
 {
-    Playback_free();
+    Pa_Terminate();
 }
 
 static PyModuleDef audiotoolsmodule = {
@@ -532,7 +530,7 @@ PyInit_audiotools(void)
 {
     PyObject* module;
     av_register_all();
-    Playback_init();
+    Pa_Initialize();
 
     if (PyType_Ready(&SongType) < 0) {
         return NULL;
