@@ -64,7 +64,12 @@ Converting the song (not implemented):
 >>> converted.filename
 Finntroll - Trollhammaren.ogg
 
-Playback (not implemented):
+Playback (current implementation):
+
+>>> song.play()  # Wait for the song to finish.
+>>>
+
+Playback (target implementation):
 
 >>> song.play()
 0.00

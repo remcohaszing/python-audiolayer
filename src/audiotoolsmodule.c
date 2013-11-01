@@ -266,16 +266,33 @@ Song_play(Song *self)
         return NULL;
     }
 
+    PaSampleFormat sample_fmt;
+    switch (self->codec_ctx->sample_fmt) {
+        case AV_SAMPLE_FMT_U8:
+            sample_fmt = paUInt8;
+            break;
+        case AV_SAMPLE_FMT_S16:
+            sample_fmt = paInt16;
+            break;
+        case AV_SAMPLE_FMT_S32:
+            sample_fmt = paInt32;
+            break;
+        case AV_SAMPLE_FMT_FLT:
+            sample_fmt = paFloat32;
+            break;
+        default:
+            PyErr_SetString(PyExc_OSError,
+                            "Unable to parse audio sample format.");
+            return NULL;
+    }
     PaError err = Pa_OpenDefaultStream(&self->pa_stream,
                                        0,
                                        self->codec_ctx->channels,
-                                       paFloat32,
+                                       sample_fmt,
                                        self->codec_ctx->sample_rate,
                                        paFramesPerBufferUnspecified,
                                        NULL,
                                        NULL);
-/*            self->pa_stream_callback,*/
-/*            &codec_ctx);*/
     PaPy_CHECK_ERROR(err)
     err = Pa_StartStream(self->pa_stream);
     PaPy_CHECK_ERROR(err)
@@ -291,13 +308,16 @@ Song_play(Song *self)
         if (ret < 0) {
             continue;
         }
+        if (ret != packet.size) {
+            continue;
+        }
         if (got_frame) {
-            err = Pa_WriteStream(self->pa_stream, *frame.data, ret);
+            err = Pa_WriteStream(self->pa_stream, *frame.data,
+                                 frame.nb_samples);
             PaPy_CHECK_ERROR(err)
         }
-/*        av_free_packet(&packet);*/
+        av_free_packet(&packet);
     }
-    printf("Done\n");
     Py_RETURN_NONE;
 }
 

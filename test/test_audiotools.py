@@ -228,6 +228,7 @@ class TestSongAudioInfo(unittest.TestCase):
         """
         song = Song(testfile)
         self.assertAlmostEqual(song.duration, 119.188, 3)
+        self.assertIs(song.duration, song.duration)
 
     def test_sample_rate(self):
         """
@@ -236,6 +237,7 @@ class TestSongAudioInfo(unittest.TestCase):
         """
         song = Song(testfile)
         self.assertEqual(song.sample_rate, 44100)
+        self.assertIs(song.sample_rate, song.sample_rate)
 
     def test_channels(self):
         """
@@ -245,6 +247,20 @@ class TestSongAudioInfo(unittest.TestCase):
         """
         song = Song(testfile)
         self.assertEqual(song.channels, 2)
+        self.assertIs(song.channels, song.channels)
+
+
+class TestSongPlayback(unittest.TestCase):
+    """
+    Test the playback is handled correctly and the play method does not
+    raise any exceptions
+
+    """
+    @unittest.skip('This test takes too long to finish,'
+                   'because the entire song is played.')
+    def test_playback(self):
+        song = Song(testfile)
+        self.assertIsNone(song.play())
 
 
 if __name__ == '__main__':
