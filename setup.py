@@ -37,5 +37,5 @@ setup(
     test_suite='test',
     ext_modules=[Extension(
         'audiotools',
-        sources=['src/audiotoolsmodule.c', 'src/playback.c'],
+        sources=['src/audiotoolsmodule.c'],
         libraries=c_libs)])
