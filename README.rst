@@ -59,11 +59,6 @@ Saving song metadata:
 >>> song.save(filename='Finntroll/Nattfödd/Trollhammaren.flac')
 >>>
 
-.. warning::
-
-    This feature is working, but all audio packets are lost after calling this
-    function.
-
 Converting the song (not implemented):
 
 >>> converted = song.convert('Finntroll - Trollhammaren.ogg',
