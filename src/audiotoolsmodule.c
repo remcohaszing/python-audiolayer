@@ -551,7 +551,7 @@ static PyGetSetDef Song_getseters[] = {
 
 static PyMethodDef Song_methods[] = {
     {"print", (PyCFunction)Song_print, METH_NOARGS, "Print all metadata."},
-    {"save", (PyCFunction)Song_save, METH_KEYWORDS, ""},
+    {"save", (PyCFunction)Song_save, METH_VARARGS | METH_KEYWORDS, ""},
     {"play", (PyCFunction)Song_play, METH_NOARGS, Song_play__doc__},
     {NULL}
 };
