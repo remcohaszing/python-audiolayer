@@ -316,6 +316,7 @@ Song_play(Song *self)
         }
         av_free_packet(&packet);
     }
+    av_seek_frame(self->fmt_ctx, self->audio_stream->index, 0, 0);
     Py_RETURN_NONE;
 }
 
@@ -409,6 +410,8 @@ Song_save(Song *self, PyObject *args, PyObject *kwargs)
         av_write_frame(o_fmt_ctx, &packet);
         av_free_packet(&packet);
     }
+
+    av_seek_frame(self->fmt_ctx, self->audio_stream->index, 0, 0);
 
     if (av_write_trailer(o_fmt_ctx) < 0) {
         PyErr_SetString(PyExc_IOError, "Error writing trailer info.");
