@@ -49,13 +49,20 @@ Finntroll
 Trollhammaren
 >>> song['title']
 Trollhammaren
+>>>
 
-Saving song metadata (not implemented):
+Saving song metadata:
 
 >>> song['album'] = 'Nattfödd'
 >>> song['album']
 'Nattfödd'
->>> song.save()
+>>> song.save(filename='Finntroll/Nattfödd/Trollhammaren.flac')
+>>>
+
+.. warning::
+
+    This feature is working, but all audio packets are lost after calling this
+    function.
 
 Converting the song (not implemented):
 
@@ -63,6 +70,7 @@ Converting the song (not implemented):
 ...                          format='opus', q=4)
 >>> converted.filename
 Finntroll - Trollhammaren.ogg
+>>>
 
 Playback (current implementation):
 
@@ -79,6 +87,7 @@ Playback (target implementation):
 4.29
 >>> song.playing_time
 12.53
+>>>
 
 
 Testing

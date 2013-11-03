@@ -320,8 +320,104 @@ Song_play(Song *self)
 }
 
 static PyObject *
-Song_save(Song *self)
+Song_save(Song *self, PyObject *args, PyObject *kwargs)
 {
+    char *filename;
+    PyObject *py_filename = NULL;
+
+    static char *kwds[] = {"filename", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|U", kwds, &py_filename)) {
+        return NULL;
+    }
+    if (py_filename) {
+        filename = PyUnicode_AsUTF8(py_filename);
+    } else {
+        filename = "out.flac"; /* XXX Use self->fmt_ctx->filename */
+    }
+    AVOutputFormat *o_fmt = av_guess_format(self->fmt_ctx->iformat->name,
+                                            filename, NULL);
+    if (!o_fmt) {
+        PyErr_SetString(PyExc_IOError, "Unable to detect output format.");
+        return NULL;
+    }
+    AVFormatContext *o_fmt_ctx = avformat_alloc_context();
+    o_fmt_ctx->oformat = o_fmt;
+    if (!o_fmt_ctx) {
+        PyErr_SetString(PyExc_IOError,
+                        "Unable to allocate output format context.");
+        return NULL;
+    }
+    if (!(o_fmt->flags & AVFMT_NOFILE)) {
+        if (avio_open(&(o_fmt_ctx->pb), filename, AVIO_FLAG_WRITE) < 0) {
+            PyErr_SetString(PyExc_IOError, "Unable to open output file.");
+            return NULL;
+        }
+    }
+    AVStream *o_stream = avformat_new_stream(o_fmt_ctx, NULL);
+    if (!o_stream) {
+        PyErr_SetString(PyExc_IOError, "Unable to allocate output stream.");
+        return NULL;
+    }
+    o_stream->id = self->audio_stream->id;
+    o_stream->disposition = self->audio_stream->disposition;
+    o_stream->codec->bits_per_raw_sample = self->audio_stream->codec->bits_per_raw_sample;
+    o_stream->codec->chroma_sample_location = self->audio_stream->codec->chroma_sample_location;
+    o_stream->codec->codec_id = self->audio_stream->codec->codec_id;
+    o_stream->codec->codec_type = self->audio_stream->codec->codec_type;
+    o_stream->codec->codec_tag = self->audio_stream->codec->codec_tag;
+    o_stream->codec->bit_rate = self->audio_stream->codec->bit_rate;
+    o_stream->codec->rc_max_rate = self->audio_stream->codec->rc_max_rate;
+    o_stream->codec->rc_buffer_size = self->audio_stream->codec->rc_buffer_size;
+    o_stream->codec->field_order = self->audio_stream->codec->field_order;
+    uint64_t extra_size = (uint64_t)self->audio_stream->codec->extradata_size + FF_INPUT_BUFFER_PADDING_SIZE;
+    if (extra_size > INT_MAX) {
+        return NULL;
+    }
+    o_stream->codec->extradata = av_mallocz(extra_size);
+    if (!o_stream->codec->extradata) {
+        return NULL;
+    }
+    memcpy(o_stream->codec->extradata, self->audio_stream->codec->extradata, self->audio_stream->codec->extradata_size);
+    o_stream->codec->extradata_size = self->audio_stream->codec->extradata_size;
+    o_stream->codec->time_base = self->audio_stream->time_base;
+
+    /* Audio specific */
+    o_stream->codec->channel_layout = self->audio_stream->codec->channel_layout;
+    o_stream->codec->sample_rate = self->audio_stream->codec->sample_rate;
+    o_stream->codec->channels = self->audio_stream->codec->channels;
+    o_stream->codec->frame_size = self->audio_stream->codec->frame_size;
+    o_stream->codec->audio_service_type = self->audio_stream->codec->audio_service_type;
+    o_stream->codec->block_align = self->audio_stream->codec->block_align;
+
+    /* Metadata */
+    AVDictionaryEntry *tag = NULL;
+    while((tag = av_dict_get(self->fmt_ctx->metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
+        av_dict_set(&o_fmt_ctx->metadata, tag->key, tag->value, AV_DICT_IGNORE_SUFFIX);
+    }
+
+    if (avformat_write_header(o_fmt_ctx, NULL) < 0) {
+        PyErr_SetString(PyExc_IOError, "Unable to write metadata.");
+        return NULL;
+    }
+
+    AVPacket packet;
+    while (av_read_frame(self->fmt_ctx, &packet) >= 0) {
+        if (packet.stream_index != self->audio_stream->index) {
+            continue;
+        }
+        av_write_frame(o_fmt_ctx, &packet);
+        av_free_packet(&packet);
+    }
+
+    if (av_write_trailer(o_fmt_ctx) < 0) {
+        PyErr_SetString(PyExc_IOError, "Error writing trailer info.");
+        return NULL;
+    }
+
+    avio_close(o_fmt_ctx->pb);
+    avformat_free_context(o_fmt_ctx);
+
     Py_RETURN_NONE;
 }
 
@@ -455,7 +551,7 @@ static PyGetSetDef Song_getseters[] = {
 
 static PyMethodDef Song_methods[] = {
     {"print", (PyCFunction)Song_print, METH_NOARGS, "Print all metadata."},
-    {"save", (PyCFunction)Song_save, METH_NOARGS, ""},
+    {"save", (PyCFunction)Song_save, METH_KEYWORDS, ""},
     {"play", (PyCFunction)Song_play, METH_NOARGS, Song_play__doc__},
     {NULL}
 };
