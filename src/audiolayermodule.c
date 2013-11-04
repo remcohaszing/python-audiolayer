@@ -483,7 +483,7 @@ Song_contains(PyObject *self_as_obj, PyObject *key)
 static PyObject *
 Song_str(Song *self)
 {
-    char *ret = "audiotools.Song(";
+    char *ret = "audiolayer.Song(";
     AVDictionaryEntry *tag = NULL;
     AVDictionaryEntry *next = av_dict_get(self->fmt_ctx->metadata, "", NULL,
                                           AV_DICT_IGNORE_SUFFIX);
@@ -561,7 +561,7 @@ static PyMethodDef Song_methods[] = {
 
 static PyTypeObject SongType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "audiotools.Song",           /* tp_name */
+    "audiolayer.Song",           /* tp_name */
     sizeof(Song),                /* tp_basicsize */
     0,                           /* tp_itemsize */
     (destructor)Song_dealloc,    /* tp_dealloc */
@@ -602,30 +602,30 @@ static PyTypeObject SongType = {
 };
 
 /**
- * Definitions for the audiotools module.
+ * Definitions for the audiolayer module.
  */
-PyDoc_STRVAR(audiotools__doc__, "This module contains the Song object.");
+PyDoc_STRVAR(audiolayer__doc__, "This module contains the Song object.");
 
 static void
-audiotools_free(void *unused)
+audiolayer_free(void *unused)
 {
     Pa_Terminate();
 }
 
-static PyModuleDef audiotoolsmodule = {
+static PyModuleDef audiolayermodule = {
     PyModuleDef_HEAD_INIT,      /* m_base */
-    "audiotools",               /* m_name */
-    audiotools__doc__,          /* m_doc */
+    "audiolayer",               /* m_name */
+    audiolayer__doc__,          /* m_doc */
     -1,                         /* m_size */
     NULL,                       /* m_methods */
     NULL,                       /* m_reload */
     NULL,                       /* m_traverse */
     NULL,                       /* m_clear */
-    (freefunc)audiotools_free   /* m_free */
+    (freefunc)audiolayer_free   /* m_free */
 };
 
 PyMODINIT_FUNC
-PyInit_audiotools(void)
+PyInit_audiolayer(void)
 {
     PyObject* module;
     av_register_all();
@@ -635,12 +635,12 @@ PyInit_audiotools(void)
         return NULL;
     }
 
-    module = PyModule_Create(&audiotoolsmodule);
+    module = PyModule_Create(&audiolayermodule);
     if (module == NULL) {
         return NULL;
     }
 
-    NoMediaException = PyErr_NewException("audiotools.NoMediaException",
+    NoMediaException = PyErr_NewException("audiolayer.NoMediaException",
                                           NULL, NULL);
     Py_INCREF(NoMediaException);
     PyModule_AddObject(module, "NoMediaException", NoMediaException);

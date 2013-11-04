@@ -1,14 +1,13 @@
-Python Audiotools
+Python Audiolayer
 =================
 
 This package contains a Python 3 Extension for playing audio files, reading and
-writing metadata and converting those files. For decoding files the libav_
-library is used. Playback is handled by libportaudio_.
+writing metadata and converting those files. For decoding and encoding files
+the libav_ library is used. Playback is handled by libportaudio_.
 
-This is work in progress. The only things which are currently supported are
-reading and setting (not writing) metadata. The project website can be found at
+The project website can be found at
 `GitHub
-<https://github.com/RemcoHaszing/python-audiotools>`_.
+<https://github.com/remcohaszing/python-audiolayer>`_.
 
 
 Requirements
@@ -24,14 +23,14 @@ Requirements
 Installation
 ------------
 
-Using pip: (Not yet implemented)::
+Using pip::
 
-    pip install audiotools
+    pip install audiolayer
 
 From GitHub::
 
-    git clone https://github.com/RemcoHaszing/python-audiotools.git
-    cd python-audiotools
+    git clone https://github.com/remcohaszing/python-audiolayer.git
+    cd python-audiolayer
     python3 setup.py install
 
 
@@ -40,7 +39,7 @@ Usage
 
 Reading song metadata:
 
->>> from audiotools import Song
+>>> from audiolayer import Song
 >>> filename = 'Finntroll - Trollhammaren.flac'
 >>> song = Song(filename)
 >>> song['artist']

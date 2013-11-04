@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Setup file for the audiotools module.
+Setup file for the audiolayer module.
 
 """
 from setuptools import Extension
@@ -22,20 +22,20 @@ c_libs = libav + libportaudio
 
 
 setup(
-    name='audiotools',
+    name='audiolayer',
     version='0.1.0',
     author='Remco Haszing',
     author_email='remcohaszing@gmail.com',
     maintainer='Remco Haszing',
     maintainer_email='remcohaszing@gmail.com',
-    url='https://github.com/RemcoHaszing/python-audiotools',
+    url='https://github.com/RemcoHaszing/python-audiolayer',
     description='This module provides a wrapper around the libav C library',
     long_description=readme,
     download_url=
-        'https://github.com/RemcoHaszing/python-audiotools/archive/master.zip',
+        'https://github.com/RemcoHaszing/python-audiolayer/archive/master.zip',
     license='BSD 3-Clause License',
     test_suite='test',
     ext_modules=[Extension(
-        'audiotools',
-        sources=['src/audiotoolsmodule.c'],
+        'audiolayer',
+        sources=['src/audiolayermodule.c'],
         libraries=c_libs)])

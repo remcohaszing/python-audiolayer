@@ -2,8 +2,8 @@ import os
 import unittest
 import warnings
 
-from audiotools import NoMediaException
-from audiotools import Song
+from audiolayer import NoMediaException
+from audiolayer import Song
 
 
 # Use the existing media file in the same directory as the unittest for
@@ -209,7 +209,7 @@ class TestSongMetadata(unittest.TestCase):
         """
         song = Song(testfile)
         value = str(song)
-        self.assertTrue(value.startswith('audiotools.Song('))
+        self.assertTrue(value.startswith('audiolayer.Song('))
         self.assertTrue(value.endswith(')'))
         for tag in song:
             self.assertIn(tag, value)
