@@ -1,3 +1,4 @@
+#include <fcntl.h>
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libgen.h>
@@ -105,7 +106,7 @@ shorthand for:\n\
 PyDoc_STRVAR(Song_filepath__doc__, "The path of the file.");
 PyDoc_STRVAR(Song_duration__doc__, "The duration of the file in seconds.");
 PyDoc_STRVAR(Song_samplerate__doc__, "The sample rate of the file.");
-PyDoc_STRVAR(Song_channels__doc__, "The number of audio channels of the file");
+PyDoc_STRVAR(Song_channels__doc__, "The number of audio channels of the file.");
 
 static int
 Song_init(Song *self, PyObject *args, PyObject *kwds)
@@ -674,7 +675,17 @@ PyInit_audiolayer(void)
     srand(time(NULL));
     PyObject* module;
     av_register_all();
+
+    /* Hack to disable annoying Portaudio logging when importing this module */
+    fflush(stderr);
+    int bak = dup(2);
+    int new = open("/dev/null", O_WRONLY);
+    dup2(new, 2);
+    close(new);
     Pa_Initialize();
+    fflush(stderr);
+    dup2(bak, 2);
+    close(bak);
 
     if (PyType_Ready(&SongType) < 0) {
         return NULL;
