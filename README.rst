@@ -55,7 +55,11 @@ Saving song metadata:
 >>> song['album'] = 'Nattfödd'
 >>> song['album']
 'Nattfödd'
->>> song.save(filename='Finntroll/Nattfödd/Trollhammaren.flac')
+>>> song.save()
+>>>
+
+Saving a copy of the song with the new metadata to a new file:
+>>> song.save(filename='Finntroll/Nattfödd - Trollhammaren.flac')
 >>>
 
 Converting the song (not implemented):

@@ -1,10 +1,12 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libgen.h>
 #include <portaudio.h>
 #include <Python.h>
 #include <stdio.h>
 #include <strings.h>
 #include <structmember.h>
+#include <time.h>
 
 /**
  * Exception definitions.
@@ -35,6 +37,9 @@ static int
 Song_traverse(Song *self, visitproc visit, void *arg)
 {
     Py_VISIT(self->filepath);
+    Py_VISIT(self->duration);
+    Py_VISIT(self->sample_rate);
+    Py_VISIT(self->channels);
     return 0;
 }
 
@@ -42,6 +47,9 @@ static int
 Song_clear(Song *self)
 {
     Py_CLEAR(self->filepath);
+    Py_CLEAR(self->duration);
+    Py_CLEAR(self->sample_rate);
+    Py_CLEAR(self->channels);
     return 0;
 }
 
@@ -80,6 +88,19 @@ Machinae Supremacy\n\
 >>>");
 /* Method docstrings */
 PyDoc_STRVAR(Song_play__doc__, "Start or continue playing this song.");
+PyDoc_STRVAR(Song_save__doc__, "Save the song with its metadata.\n\
+\n\
+This saves the song to a file with the newly set metadata.\n\
+\n\
+:key filename: The path to save the new file to.");
+PyDoc_STRVAR(Song_print__doc__, "Prints all metadata of this song.\n\
+\n\
+The metadata will be printed in the form `key -> value\\n`. This is a \
+shorthand for:\n\
+\n\
+>>> for tag in song:\n\
+...     print('{} -> {}'.format(tag, song[tag]))\n\
+...");
 /* Property docstrings */
 PyDoc_STRVAR(Song_filepath__doc__, "The path of the file.");
 PyDoc_STRVAR(Song_duration__doc__, "The duration of the file in seconds.");
@@ -331,11 +352,31 @@ Song_save(Song *self, PyObject *args, PyObject *kwargs)
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|U", kwds, &py_filename)) {
         return NULL;
     }
+
+    /* Create a random tmp filename to store the unfinished file. */
+    static const char choice[] = "0123456789"
+                                 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                 "abcdefghijklmnopqrstuvwxyz";
+    char *tmpfile = malloc(21);
+    unsigned int i = 1;
+    tmpfile[0] = '.';
+    for (; i < 20; i++) {
+        tmpfile[i] = choice[rand() % (sizeof(choice) - 1)];
+    }
+    tmpfile[i] = 0;
+
     if (py_filename) {
         filename = PyUnicode_AsUTF8(py_filename);
     } else {
-        filename = "out.flac"; /* XXX Use self->fmt_ctx->filename */
+        filename = self->fmt_ctx->filename;
     }
+    struct stat s;
+    char *dir = dirname(filename);
+    if(stat(dir, &s)) {
+        PyErr_SetFromErrnoWithFilename(PyExc_IOError, dir);
+        return NULL;
+    }
+
     AVOutputFormat *o_fmt = av_guess_format(self->fmt_ctx->iformat->name,
                                             filename, NULL);
     if (!o_fmt) {
@@ -350,8 +391,9 @@ Song_save(Song *self, PyObject *args, PyObject *kwargs)
         return NULL;
     }
     if (!(o_fmt->flags & AVFMT_NOFILE)) {
-        if (avio_open(&(o_fmt_ctx->pb), filename, AVIO_FLAG_WRITE) < 0) {
-            PyErr_SetString(PyExc_IOError, "Unable to open output file.");
+        if (avio_open(&(o_fmt_ctx->pb), tmpfile, AVIO_FLAG_WRITE) < 0) {
+            PyErr_SetString(PyExc_IOError,
+                            "Unable to open temporary output file.");
             return NULL;
         }
     }
@@ -420,6 +462,7 @@ Song_save(Song *self, PyObject *args, PyObject *kwargs)
 
     avio_close(o_fmt_ctx->pb);
     avformat_free_context(o_fmt_ctx);
+    rename(tmpfile, filename);
 
     Py_RETURN_NONE;
 }
@@ -553,8 +596,9 @@ static PyGetSetDef Song_getseters[] = {
 };
 
 static PyMethodDef Song_methods[] = {
-    {"print", (PyCFunction)Song_print, METH_NOARGS, "Print all metadata."},
-    {"save", (PyCFunction)Song_save, METH_VARARGS | METH_KEYWORDS, ""},
+    {"print", (PyCFunction)Song_print, METH_NOARGS, Song_print__doc__},
+    {"save", (PyCFunction)Song_save, METH_VARARGS | METH_KEYWORDS,
+     Song_save__doc__},
     {"play", (PyCFunction)Song_play, METH_NOARGS, Song_play__doc__},
     {NULL}
 };
@@ -627,6 +671,7 @@ static PyModuleDef audiolayermodule = {
 PyMODINIT_FUNC
 PyInit_audiolayer(void)
 {
+    srand(time(NULL));
     PyObject* module;
     av_register_all();
     Pa_Initialize();

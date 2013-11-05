@@ -1,6 +1,7 @@
+import functools
 import os
+import shutil
 import unittest
-import warnings
 
 from audiolayer import NoMediaException
 from audiolayer import Song
@@ -11,6 +12,30 @@ from audiolayer import Song
 # http://www.machinaesupremacy.com/downloads/
 testfile = os.path.join(os.path.dirname(__import__(__name__).__file__),
                         'test.flac')
+
+
+def cleanup(filename):
+    """
+    This function should be used as a decorator. The filename is
+    appended to the function args. After finishing the function the
+    file by that filename is deleted.
+
+    """
+    def wrapper(fn):
+        @functools.wraps(fn)
+        def inner(*args, **kwargs):
+            args += (filename,)
+            try:
+                result = fn(*args, **kwargs)
+            except:
+                if os.path.isfile(filename):
+                    os.remove(filename)
+                raise
+            if os.path.isfile(filename):
+                os.remove(filename)
+            return result
+        return inner
+    return wrapper
 
 
 class TestInitSong(unittest.TestCase):
@@ -74,11 +99,11 @@ class TestInitSong(unittest.TestCase):
 
         """
         song = Song(testfile)
-        with self.assertRaises(UserWarning) as w:
+        with self.assertRaises(UserWarning):
             song.__init__('f' * 200)
-        with self.assertRaises(UserWarning) as w:
+        with self.assertRaises(UserWarning):
             song.__init__(os.path.dirname(__import__(__name__).__file__))
-        with self.assertRaises(UserWarning) as w:
+        with self.assertRaises(UserWarning):
             song.__init__(testfile)
 
 
@@ -214,6 +239,61 @@ class TestSongMetadata(unittest.TestCase):
         for tag in song:
             self.assertIn(tag, value)
             self.assertIn(song[tag], value)
+
+
+class TestSaveSong(unittest.TestCase):
+    """
+    Test functionality for saving the song metadata.
+
+    """
+    @cleanup('out_unchanged.flac')
+    def test_with_filename(self, filename):
+        """
+        Test saving the file to a different location.
+
+        """
+        song = Song(testfile)
+        song.save(filename=filename)
+        copy = Song(filename)
+        for tag in song:
+            self.assertIn(tag, copy)
+            self.assertEqual(song[tag], copy[tag])
+        os.remove('out_unchanged.flac')
+
+    @cleanup('out_changed_meta.flac')
+    def test_with_filename_and_changed_metadata(self, filename):
+        """
+        Test saving the file to a different location when different
+        metadata has been set.
+
+        """
+        song = Song(testfile)
+        song['artist'] = 'MaSu'
+        song.save(filename=filename)
+        copy = Song(filename)
+        self.assertEqual(copy['artist'], 'MaSu')
+
+    @cleanup('out_name_unspecified.flac')
+    def test_no_filename(self, filename):
+        """
+        Test saving metadata to the original input file.
+
+        """
+        shutil.copy(testfile, filename)
+        song = Song(filename)
+        song['track'] = 5
+        song.save()
+        new = Song(filename)
+        self.assertEqual(new['track'], '5')
+
+    def test_nonexisting_directory(self):
+        """
+        Test saving the file to a non existing directory.
+
+        """
+        song = Song(testfile)
+        with self.assertRaises(FileNotFoundError):
+            song.save('non/existing/directory/out.flac')
 
 
 class TestSongAudioInfo(unittest.TestCase):
