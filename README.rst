@@ -5,9 +5,10 @@ This package contains a Python 3 Extension for playing audio files, reading and
 writing metadata and converting those files. For decoding and encoding files
 the libav_ library is used. Playback is handled by libportaudio_.
 
-The project website can be found at
+The project can be found at
 `GitHub
-<https://github.com/remcohaszing/python-audiolayer>`_.
+<https://github.com/remcohaszing/python-audiolayer>`_ and `PyPi
+<https://pypi.python.org/pypi?name=audiolayer&:action=display>`_.
 
 
 Requirements
@@ -59,6 +60,7 @@ Saving song metadata:
 >>>
 
 Saving a copy of the song with the new metadata to a new file:
+
 >>> song.save(filename='Finntroll/Nattfödd - Trollhammaren.flac')
 >>>
 
