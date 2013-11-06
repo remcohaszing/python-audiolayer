@@ -121,6 +121,12 @@ License
 This project is licensed under the BSD 3-Clause License.
 
 
+WIP
+---
+
+This project is still a work in progress.
+
+
 .. _libav: https://libav.org
 .. _libportaudio: http://portaudio.com/
 .. _nose: http://nose.readthedocs.org

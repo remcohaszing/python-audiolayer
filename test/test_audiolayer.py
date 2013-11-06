@@ -260,7 +260,7 @@ class TestSaveSong(unittest.TestCase):
             self.assertEqual(song[tag], copy[tag])
         os.remove('out_unchanged.flac')
 
-    @cleanup('out_changed_meta.flac')
+    @cleanup('out_chänged_meta.flac')
     def test_with_filename_and_changed_metadata(self, filename):
         """
         Test saving the file to a different location when different
