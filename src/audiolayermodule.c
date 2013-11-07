@@ -106,7 +106,8 @@ shorthand for:\n\
 PyDoc_STRVAR(Song_filepath__doc__, "The path of the file.");
 PyDoc_STRVAR(Song_duration__doc__, "The duration of the file in seconds.");
 PyDoc_STRVAR(Song_samplerate__doc__, "The sample rate of the file.");
-PyDoc_STRVAR(Song_channels__doc__, "The number of audio channels of the file.");
+PyDoc_STRVAR(Song_channels__doc__,
+             "The number of audio channels of the file.");
 
 static int
 Song_init(Song *self, PyObject *args, PyObject *kwds)
@@ -403,18 +404,22 @@ Song_save(Song *self, PyObject *args, PyObject *kwargs)
         PyErr_SetString(PyExc_IOError, "Unable to allocate output stream.");
         return NULL;
     }
-    o_stream->id = self->audio_stream->id;
-    o_stream->disposition = self->audio_stream->disposition;
-    o_stream->codec->bits_per_raw_sample = self->audio_stream->codec->bits_per_raw_sample;
-    o_stream->codec->chroma_sample_location = self->audio_stream->codec->chroma_sample_location;
-    o_stream->codec->codec_id = self->audio_stream->codec->codec_id;
-    o_stream->codec->codec_type = self->audio_stream->codec->codec_type;
-    o_stream->codec->codec_tag = self->audio_stream->codec->codec_tag;
-    o_stream->codec->bit_rate = self->audio_stream->codec->bit_rate;
-    o_stream->codec->rc_max_rate = self->audio_stream->codec->rc_max_rate;
-    o_stream->codec->rc_buffer_size = self->audio_stream->codec->rc_buffer_size;
-    o_stream->codec->field_order = self->audio_stream->codec->field_order;
-    uint64_t extra_size = (uint64_t)self->audio_stream->codec->extradata_size + FF_INPUT_BUFFER_PADDING_SIZE;
+    AVStream *i_stream = self->audio_stream;
+    o_stream->id = i_stream->id;
+    o_stream->disposition = i_stream->disposition;
+    o_stream->codec->bits_per_raw_sample =
+        i_stream->codec->bits_per_raw_sample;
+    o_stream->codec->chroma_sample_location =
+        i_stream->codec->chroma_sample_location;
+    o_stream->codec->codec_id = i_stream->codec->codec_id;
+    o_stream->codec->codec_type = i_stream->codec->codec_type;
+    o_stream->codec->codec_tag = i_stream->codec->codec_tag;
+    o_stream->codec->bit_rate = i_stream->codec->bit_rate;
+    o_stream->codec->rc_max_rate = i_stream->codec->rc_max_rate;
+    o_stream->codec->rc_buffer_size = i_stream->codec->rc_buffer_size;
+    o_stream->codec->field_order = i_stream->codec->field_order;
+    uint64_t extra_size = (uint64_t)i_stream->codec->extradata_size +
+        FF_INPUT_BUFFER_PADDING_SIZE;
     if (extra_size > INT_MAX) {
         return NULL;
     }
@@ -422,22 +427,25 @@ Song_save(Song *self, PyObject *args, PyObject *kwargs)
     if (!o_stream->codec->extradata) {
         return NULL;
     }
-    memcpy(o_stream->codec->extradata, self->audio_stream->codec->extradata, self->audio_stream->codec->extradata_size);
-    o_stream->codec->extradata_size = self->audio_stream->codec->extradata_size;
-    o_stream->codec->time_base = self->audio_stream->time_base;
+    memcpy(o_stream->codec->extradata, i_stream->codec->extradata,
+           i_stream->codec->extradata_size);
+    o_stream->codec->extradata_size = i_stream->codec->extradata_size;
+    o_stream->codec->time_base = i_stream->time_base;
 
     /* Audio specific */
-    o_stream->codec->channel_layout = self->audio_stream->codec->channel_layout;
-    o_stream->codec->sample_rate = self->audio_stream->codec->sample_rate;
-    o_stream->codec->channels = self->audio_stream->codec->channels;
-    o_stream->codec->frame_size = self->audio_stream->codec->frame_size;
-    o_stream->codec->audio_service_type = self->audio_stream->codec->audio_service_type;
-    o_stream->codec->block_align = self->audio_stream->codec->block_align;
+    o_stream->codec->channel_layout = i_stream->codec->channel_layout;
+    o_stream->codec->sample_rate = i_stream->codec->sample_rate;
+    o_stream->codec->channels = i_stream->codec->channels;
+    o_stream->codec->frame_size = i_stream->codec->frame_size;
+    o_stream->codec->audio_service_type = i_stream->codec->audio_service_type;
+    o_stream->codec->block_align = i_stream->codec->block_align;
 
     /* Metadata */
     AVDictionaryEntry *tag = NULL;
-    while((tag = av_dict_get(self->fmt_ctx->metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
-        av_dict_set(&o_fmt_ctx->metadata, tag->key, tag->value, AV_DICT_IGNORE_SUFFIX);
+    while((tag = av_dict_get(self->fmt_ctx->metadata, "",
+                             tag, AV_DICT_IGNORE_SUFFIX))) {
+        av_dict_set(&o_fmt_ctx->metadata, tag->key,
+                    tag->value, AV_DICT_IGNORE_SUFFIX);
     }
 
     if (avformat_write_header(o_fmt_ctx, NULL) < 0) {
