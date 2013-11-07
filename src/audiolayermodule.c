@@ -31,6 +31,10 @@ typedef struct {
     AVDictionaryEntry *current_tag; /* Used for iteration: for tag in song */
     /* portaudio */
     PaStream *pa_stream;
+    unsigned int frame_count;
+    unsigned int frame_index;
+    unsigned int data_index;
+    AVFrame *frames;
 } Song;
 
 /* Required for cyclic garbage collection */
@@ -171,12 +175,23 @@ Song_init(Song *self, PyObject *args, PyObject *kwds)
     }
     self->codec_ctx = self->audio_stream->codec;
     self->duration = PyFloat_FromDouble((double)self->fmt_ctx->duration /
-                                         AV_TIME_BASE);
+                                        AV_TIME_BASE);
     Py_INCREF(self->duration);
     self->sample_rate = PyLong_FromLong(self->codec_ctx->sample_rate);
     Py_INCREF(self->sample_rate);
     self->channels = PyLong_FromLong(self->codec_ctx->channels);
     Py_INCREF(self->channels);
+
+    self->frame_index = 0;
+    self->frame_count = 0;
+    self->data_index = 0;
+    AVPacket packet;
+    while (av_read_frame(self->fmt_ctx, &packet) >= 0) {
+        if (packet.stream_index == self->audio_stream->index) {
+            self->frame_count++;
+        }
+    }
+    av_seek_frame(self->fmt_ctx, self->audio_stream->index, 0, 0);
     return 0;
 }
 
@@ -272,6 +287,39 @@ Song_print(Song *self)
         return NULL; \
     }
 
+static int pa_callback(const void *input_buffer,
+                       void *output_buffer,
+                       unsigned long frames_per_buffer,
+                       const PaStreamCallbackTimeInfo* time_info,
+                       PaStreamCallbackFlags status_flags,
+                       void *user_data)
+{
+    Song *self = (Song *)user_data;
+    unsigned int i = 0;
+    int finished = 0;
+    (void) input_buffer;
+    (void) time_info;
+    uint16_t *out = (uint16_t *)output_buffer;
+    AVFrame frame = self->frames[self->frame_index];
+    for (; i < frames_per_buffer; i++) {
+        if (self->data_index++ > frame.nb_samples) {
+            frame = self->frames[self->frame_index++];
+            self->data_index = 0;
+        }
+        if (self->frame_index >= self->frame_count -1) {
+            return -1;
+        }
+/*        printf("        Count: %d\n", self->frame_count);*/
+/*        printf("        Index: %d\n", self->frame_index);*/
+/*        printf("Frames/buffer: %lu\n", frames_per_buffer);*/
+/*        printf("   nb_samples: %d\n", frame.nb_samples);*/
+/*        fflush(stdout);*/
+        *out++ = (*frame.data)[self->data_index];
+    }
+/*    self->frame_index++;*/
+    return finished;
+}
+
 static PyObject *
 Song_play(Song *self)
 {
@@ -290,15 +338,19 @@ Song_play(Song *self)
     switch (self->codec_ctx->sample_fmt) {
         case AV_SAMPLE_FMT_U8:
             sample_fmt = paUInt8;
+            printf("uint 8\n");
             break;
         case AV_SAMPLE_FMT_S16:
             sample_fmt = paInt16;
+            printf("uint 16\n");
             break;
         case AV_SAMPLE_FMT_S32:
             sample_fmt = paInt32;
+            printf("int 16\n");
             break;
         case AV_SAMPLE_FMT_FLT:
             sample_fmt = paFloat32;
+            printf("float\n");
             break;
         default:
             PyErr_SetString(PyExc_OSError,
@@ -311,12 +363,12 @@ Song_play(Song *self)
                                        sample_fmt,
                                        self->codec_ctx->sample_rate,
                                        paFramesPerBufferUnspecified,
-                                       NULL,
-                                       NULL);
-    PaPy_CHECK_ERROR(err)
-    err = Pa_StartStream(self->pa_stream);
+                                       pa_callback,
+                                       self);
     PaPy_CHECK_ERROR(err)
     AVPacket packet;
+    self->frames = malloc(self->frame_count * sizeof(AVFrame));
+    unsigned int i = 0;
     while (av_read_frame(self->fmt_ctx, &packet) >= 0) {
         if (packet.stream_index != self->audio_stream->index) {
             continue;
@@ -332,12 +384,16 @@ Song_play(Song *self)
             continue;
         }
         if (got_frame) {
-            err = Pa_WriteStream(self->pa_stream, *frame.data,
-                                 frame.nb_samples);
-            PaPy_CHECK_ERROR(err)
+            self->frames[i] = frame;
+/*            err = Pa_WriteStream(self->pa_stream, *frame.data,*/
+/*                                 frame.nb_samples);*/
+/*            PaPy_CHECK_ERROR(err)*/
+            i++;
         }
-        av_free_packet(&packet);
+/*        av_free_packet(&packet);*/
     }
+    err = Pa_StartStream(self->pa_stream);
+    PaPy_CHECK_ERROR(err)
     av_seek_frame(self->fmt_ctx, self->audio_stream->index, 0, 0);
     Py_RETURN_NONE;
 }
