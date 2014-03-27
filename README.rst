@@ -1,6 +1,10 @@
 Python Audiolayer
 =================
 
+.. image:: https://travis-ci.org/remcohaszing/grunt-angular-templatecache.png?branch=master
+   :target: https://travis-ci.org/remcohaszing/python-audiolayer
+
+
 This package contains a Python 3 Extension for playing audio files, reading and
 writing metadata and converting those files. For decoding and encoding files
 the libav_ library is used. Playback is handled by libportaudio_.
